@@ -1,0 +1,35 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.venv/
+venv/
+
+# Mac junk
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Ignore folders
+Databricks/
+data/
+CV/
+reports/
+raw_data/
+notebooks_reference/
+Spark/
+
+# Ignore files
+chat_interface.py
+chat_interface_old.py
+
+# Logs / temp
+*.log
+outputs/
+models/
