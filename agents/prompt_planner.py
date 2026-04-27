@@ -142,3 +142,43 @@ def plan_user_query(user_input):
                 "reasoning_hint": "fallback route"
             }
         }
+    
+
+
+def planner_agent(state):
+    """
+    LangGraph wrapper for planner agent
+
+    Converts:
+    user_input
+    →
+
+    query_plan
+    + reasoning_steps
+
+    This keeps existing planner logic
+    and makes it compatible with LangGraph.
+    """
+
+    user_input = state.get(
+        "user_input",
+        ""
+    )
+
+    planner_result = plan_user_query(
+        user_input
+    )
+
+    state["query_plan"] = planner_result.get(
+        "query_plan",
+        {}
+    )
+
+    state["planner_reasoning"] = "\n".join(
+        planner_result.get(
+            "reasoning_steps",
+            []
+        )
+    )
+
+    return state

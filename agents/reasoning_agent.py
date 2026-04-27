@@ -447,3 +447,57 @@ def generate_business_reasoning(
     )
 
     return final_response
+
+
+
+def reasoning_agent(state):
+    """
+    LangGraph wrapper for reasoning agent
+
+    Uses:
+    query_plan
+    +
+    execution_result
+
+    to generate final reasoning context
+    and executive business response.
+    """
+
+    query_plan = state.get(
+        "repaired_query_plan"
+    ) or state.get(
+        "query_plan",
+        {}
+    )
+
+    execution_result = state.get(
+        "execution_result",
+        {}
+    )
+
+    if not execution_result:
+        state["failure_stage"] = "reasoning"
+        state["actual_failure_reason"] = (
+            "No execution result available"
+        )
+        return state
+
+    final_response = generate_business_reasoning(
+        query_plan,
+        execution_result
+    )
+
+    reasoning_context = build_reasoning_context(
+        query_plan,
+        execution_result
+    )
+
+    state["reasoning_context"] = (
+        reasoning_context
+    )
+
+    state["final_response"] = (
+        final_response
+    )
+
+    return state

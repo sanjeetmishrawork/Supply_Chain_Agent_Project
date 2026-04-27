@@ -82,3 +82,58 @@ def reflect_on_failure(
     )
 
     return reflection_output
+    
+def reflection_agent(state):
+    """
+    LangGraph wrapper for reflection agent
+
+    Runs only on failure paths.
+
+    Converts failure into
+    structured system improvement feedback.
+    """
+
+    user_input = state.get(
+        "user_input",
+        ""
+    )
+
+    failure_stage = state.get(
+        "failure_stage",
+        "unknown"
+    )
+
+    actual_failure_reason = state.get(
+        "actual_failure_reason",
+        "Unknown failure"
+    )
+
+    planner_output = (
+        state.get("repaired_query_plan")
+        or state.get("query_plan", {})
+    )
+
+    validation_output = state.get(
+        "validation_result",
+        {}
+    )
+
+    execution_result = state.get(
+        "execution_result",
+        {}
+    )
+
+    reflection_output = reflect_on_failure(
+        user_input=user_input,
+        failure_stage=failure_stage,
+        actual_failure_reason=actual_failure_reason,
+        planner_output=planner_output,
+        validation_output=validation_output,
+        execution_result=execution_result
+    )
+
+    state["reflection_output"] = (
+        reflection_output
+    )
+
+    return state

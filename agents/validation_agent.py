@@ -471,3 +471,39 @@ def validate_query_plan(query_plan):
                 "Fallback to safe route"
             )
         }
+
+
+
+def validation_agent(state):
+    """
+    LangGraph wrapper for validation agent
+
+    Validates planner output
+    and stores validation result
+    inside shared state.
+    """
+
+    query_plan = state.get(
+        "query_plan",
+        {}
+    )
+
+    validation_result = validate_query_plan(
+        query_plan
+    )
+
+    state["validation_result"] = validation_result
+
+    if not validation_result.get(
+        "is_valid",
+        False
+    ):
+        state["failure_stage"] = "validation"
+        state["actual_failure_reason"] = (
+            validation_result.get(
+                "issues",
+                ["Validation failed"]
+            )
+        )
+
+    return state

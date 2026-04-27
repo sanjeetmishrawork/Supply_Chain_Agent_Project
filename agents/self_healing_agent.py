@@ -141,3 +141,47 @@ def auto_repair_query_plan(
     )
 
     return repaired_query_plan
+
+
+
+def self_healing_agent(state):
+    """
+    LangGraph wrapper for self-healing agent
+
+    Uses validator feedback
+    to apply minimal safe repair
+    to the planner-generated query plan.
+    """
+
+    user_input = state.get(
+        "user_input",
+        ""
+    )
+
+    query_plan = state.get(
+        "query_plan",
+        {}
+    )
+
+    validation_result = state.get(
+        "validation_result",
+        {}
+    )
+
+    repaired_query_plan = auto_repair_query_plan(
+        user_input=user_input,
+        query_plan=query_plan,
+        validation_result=validation_result
+    )
+
+    state["repaired_query_plan"] = (
+        repaired_query_plan
+    )
+
+    if not repaired_query_plan:
+        state["failure_stage"] = "repair"
+        state["actual_failure_reason"] = (
+            "Auto-repair failed"
+        )
+
+    return state
