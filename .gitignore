@@ -24,6 +24,7 @@ reports/
 raw_data/
 notebooks_reference/
 Spark/
+data_old/
 
 # Ignore files
 chat_interface.py

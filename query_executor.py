@@ -1,1024 +1,3 @@
-# # # query_executor.py
-
-# # import pandas as pd
-# # import glob
-
-
-# # def load_demand_forecast():
-# #     """
-# #     Load demand forecast
-# #     from multiple CSV files
-# #     """
-
-# #     files = glob.glob(
-# #         "data/gold_demand_forecast/*.csv"
-# #     )
-
-# #     if not files:
-# #         return pd.DataFrame()
-
-# #     return pd.concat(
-# #         [pd.read_csv(f) for f in files],
-# #         ignore_index=True
-# #     )
-
-
-# # def load_stockout_risk():
-# #     """
-# #     Load stockout risk
-# #     from multiple CSV files
-# #     """
-
-# #     files = glob.glob(
-# #         "data/gold_stockout_risk/*.csv"
-# #     )
-
-# #     if not files:
-# #         return pd.DataFrame()
-
-# #     return pd.concat(
-# #         [pd.read_csv(f) for f in files],
-# #         ignore_index=True
-# #     )
-
-
-# # def extract_category(item_id):
-# #     """
-# #     Example:
-
-# #     FOODS_001_CA_1
-# #     -> FOODS
-# #     """
-
-# #     if not isinstance(item_id, str):
-# #         return ""
-
-# #     return item_id.split("_")[0].upper()
-
-
-# # def apply_filters(df, filters):
-# #     """
-# #     Safe filter application
-# #     """
-
-# #     filtered_df = df.copy()
-
-# #     if not filters:
-# #         return filtered_df
-
-# #     # -----------------------------------
-# #     # category filter
-# #     # -----------------------------------
-
-# #     if "category" in filters:
-# #         category_value = filters[
-# #             "category"
-# #         ].upper()
-
-# #         filtered_df = filtered_df[
-# #             filtered_df["item_id"]
-# #             .str.upper()
-# #             .str.startswith(category_value)
-# #         ]
-
-# #     # -----------------------------------
-# #     # item_id exact filter
-# #     # -----------------------------------
-
-# #     if "item_id" in filters:
-# #         item_value = filters["item_id"].upper()
-
-# #         filtered_df = filtered_df[
-# #             filtered_df["item_id"]
-# #             .str.upper()
-# #             .str.startswith(item_value)
-# #             ]
-
-# #     # if "item_id" in filters:
-# #     #     item_value = filters[
-# #     #         "item_id"
-# #     #     ].upper()
-
-# #     #     filtered_df = filtered_df[
-# #     #         filtered_df["item_id"]
-# #     #         .str.upper()
-# #     #         == item_value
-# #     #     ]
-
-# #     # -----------------------------------
-# #     # store_id exact filter
-# #     # -----------------------------------
-
-# #     if "store_id" in filters:
-# #         store_value = filters[
-# #             "store_id"
-# #         ].upper()
-
-# #         filtered_df = filtered_df[
-# #             filtered_df["store_id"]
-# #             .str.upper()
-# #             == store_value
-# #         ]
-
-# #     return filtered_df
-
-
-# # def map_risk_level_to_score(value):
-# #     """
-# #     Convert string risk labels
-# #     into numeric values.
-
-# #     Because:
-
-# #     LOW + LOW + MEDIUM
-
-# #     should not become:
-
-# #     LOWLOWMEDIUM
-
-# #     Pandas tried.
-# #     We stop it.
-# #     """
-
-# #     mapping = {
-# #         "LOW": 1,
-# #         "MEDIUM": 2,
-# #         "HIGH": 3
-# #     }
-
-# #     if pd.isna(value):
-# #         return 0
-
-# #     return mapping.get(
-# #         str(value).upper(),
-# #         0
-# #     )
-
-
-# # def execute_query_plan(
-# #     inventory_df,
-# #     dsl
-# # ):
-# #     """
-# #     Safe Query Executor
-
-# #     Executes DSL only.
-
-# #     No raw LLM execution.
-# #     No unsafe operations.
-# #     """
-
-# #     demand_df = load_demand_forecast()
-# #     stockout_df = load_stockout_risk()
-
-# #     query_type = dsl.get(
-# #         "query_type",
-# #         "fallback"
-# #     )
-
-# #     filters = dsl.get(
-# #         "filters",
-# #         {}
-# #     )
-
-# #     metric = dsl.get(
-# #         "metric",
-# #         ""
-# #     )
-
-# #     # -----------------------------------
-# #     # Derived category column
-# #     # -----------------------------------
-
-# #     inventory_df = inventory_df.copy()
-
-# #     inventory_df["category"] = (
-# #         inventory_df["item_id"]
-# #         .apply(extract_category)
-# #     )
-
-# #     # =====================================
-# #     # CATEGORY ANALYSIS
-# #     # =====================================
-
-# #     if query_type == "category_analysis":
-
-# #         matched_rows = apply_filters(
-# #             inventory_df,
-# #             filters
-# #         )
-
-# #         if matched_rows.empty:
-# #             return {}
-
-# #         high_risk_rows = matched_rows[
-# #             matched_rows["risk_level"]
-# #             == "HIGH"
-# #         ]
-
-# #         top_store = (
-# #             matched_rows["store_id"]
-# #             .mode()[0]
-# #         )
-
-# #         return {
-# #             "query_type": "category_analysis",
-# #             "category": filters.get(
-# #                 "category",
-# #                 ""
-# #             ),
-# #             "total_items": len(
-# #                 matched_rows
-# #             ),
-# #             "high_risk_count": len(
-# #                 high_risk_rows
-# #             ),
-# #             "top_store": top_store
-# #         }
-
-# #     # =====================================
-# #     # PRODUCT ANALYSIS
-# #     # =====================================
-
-# #     elif query_type == "product_analysis":
-
-# #         matched_rows = apply_filters(
-# #             inventory_df,
-# #             filters
-# #         )
-
-# #         if matched_rows.empty:
-# #             return {}
-
-# #         first_row = matched_rows.iloc[0]
-
-# #         return {
-# #             "query_type": "product_analysis",
-# #             "item_id": first_row.get(
-# #                 "item_id",
-# #                 ""
-# #             ),
-# #             "store_id": first_row.get(
-# #                 "store_id",
-# #                 ""
-# #             ),
-# #             "avg_daily_sales": float(
-# #                 first_row.get(
-# #                     "avg_daily_sales",
-# #                     0
-# #                 )
-# #             ),
-# #             "risk_level": first_row.get(
-# #                 "risk_level",
-# #                 "UNKNOWN"
-# #             )
-# #         }
-
-# #     # =====================================
-# #     # RANKING QUERY
-# #     # =====================================
-
-# #     elif query_type == "ranking":
-
-# #         matched_rows = apply_filters(
-# #             inventory_df,
-# #             filters
-# #         )
-
-# #         if matched_rows.empty:
-# #             return {}
-
-# #         group_by = dsl.get(
-# #             "group_by",
-# #             None
-# #         )
-
-# #         limit = dsl.get(
-# #             "limit",
-# #             5
-# #         )
-
-# #         sort_order = dsl.get(
-# #             "sort_order",
-# #             "desc"
-# #         )
-
-# #         if not group_by:
-# #             return {}
-
-# #         # -----------------------------------
-# #         # Metric mapping
-# #         # -----------------------------------
-
-# #         if metric in [
-# #             "sales",
-# #             "avg_daily_sales"
-# #         ]:
-# #             value_column = (
-# #                 "avg_daily_sales"
-# #             )
-
-# #         elif metric == "inventory_risk":
-# #             value_column = (
-# #                 "risk_score"
-# #             )
-
-# #             matched_rows[
-# #                 "risk_score"
-# #             ] = matched_rows[
-# #                 "risk_level"
-# #             ].apply(
-# #                 map_risk_level_to_score
-# #             )
-
-# #         elif metric == "stockout_risk":
-# #             value_column = (
-# #                 "risk_score"
-# #             )
-
-# #             matched_rows[
-# #                 "risk_score"
-# #             ] = matched_rows[
-# #                 "risk_level"
-# #             ].apply(
-# #                 map_risk_level_to_score
-# #             )
-
-# #         else:
-# #             value_column = (
-# #                 "avg_daily_sales"
-# #             )
-
-# #         # -----------------------------------
-# #         # Execute grouping
-# #         # -----------------------------------
-
-# #         grouped = (
-# #             matched_rows
-# #             .groupby(group_by)[value_column]
-# #             .sum()
-# #             .reset_index(name="score")
-# #         )
-
-# #         ascending = (
-# #             False
-# #             if sort_order == "desc"
-# #             else True
-# #         )
-
-# #         grouped = grouped.sort_values(
-# #             by="score",
-# #             ascending=ascending
-# #         ).head(limit)
-
-# #         return {
-# #             "query_type": "ranking",
-# #             "metric": metric,
-# #             "ranking_results": grouped.to_dict(
-# #                 orient="records"
-# #             )
-# #         }
-
-# #     # =====================================
-# #     # COMPARISON QUERY
-# #     # =====================================
-
-# #     elif query_type == "comparison":
-
-# #         left_entity = filters.get(
-# #             "left_entity",
-# #             ""
-# #         )
-
-# #         right_entity = filters.get(
-# #             "right_entity",
-# #             ""
-# #         )
-
-# #         left_rows = inventory_df[
-# #             inventory_df["category"]
-# #             == left_entity
-# #         ]
-
-# #         right_rows = inventory_df[
-# #             inventory_df["category"]
-# #             == right_entity
-# #         ]
-
-# #         if (
-# #             left_rows.empty
-# #             or right_rows.empty
-# #         ):
-# #             return {}
-
-# #         def summarize(df):
-# #             high_risk_count = len(
-# #                 df[
-# #                     df["risk_level"]
-# #                     == "HIGH"
-# #                 ]
-# #             )
-
-# #             top_store = (
-# #                 df["store_id"]
-# #                 .mode()[0]
-# #             )
-
-# #             return {
-# #                 "total_items": len(df),
-# #                 "high_risk_count": high_risk_count,
-# #                 "top_store": top_store
-# #             }
-
-# #         return {
-# #             "query_type": "comparison",
-# #             "metric": metric,
-# #             "left_entity": {
-# #                 "name": left_entity,
-# #                 **summarize(left_rows)
-# #             },
-# #             "right_entity": {
-# #                 "name": right_entity,
-# #                 **summarize(right_rows)
-# #             }
-# #         }
-
-# #     # =====================================
-# #     # FORECAST QUERY
-# #     # =====================================
-
-# #     elif query_type == "forecast":
-
-# #         matched_rows = apply_filters(
-# #             demand_df,
-# #             filters
-# #         )
-
-# #         if matched_rows.empty:
-# #             return {}
-
-# #         avg_forecast = round(
-# #             matched_rows[
-# #                 "forecast_next_30_days"
-# #             ].mean(),
-# #             2
-# #         )
-
-# #         return {
-# #             "query_type": "forecast",
-# #             "metric": metric,
-# #             "forecast_next_30_days": avg_forecast
-# #         }
-
-# #     # =====================================
-# #     # FALLBACK
-# #     # =====================================
-
-# #     return {
-# #         "query_type": "fallback",
-# #         "message": (
-# #             "No matching query execution path found."
-# #         )
-# #     }
-
-# # query_executor.py
-
-# import pandas as pd
-# import glob
-
-
-# # =====================================
-# # DATA LOADERS
-# # =====================================
-
-# def load_demand_forecast():
-#     """
-#     Load demand forecast
-#     from multiple CSV files
-#     """
-
-#     files = glob.glob(
-#         "data/gold_demand_forecast/*.csv"
-#     )
-
-#     if not files:
-#         return pd.DataFrame()
-
-#     return pd.concat(
-#         [pd.read_csv(f) for f in files],
-#         ignore_index=True
-#     )
-
-
-# def load_stockout_risk():
-#     """
-#     Load stockout risk
-#     from multiple CSV files
-#     """
-
-#     files = glob.glob(
-#         "data/gold_stockout_risk/*.csv"
-#     )
-
-#     if not files:
-#         return pd.DataFrame()
-
-#     return pd.concat(
-#         [pd.read_csv(f) for f in files],
-#         ignore_index=True
-#     )
-
-
-# # =====================================
-# # SHARED HELPERS
-# # =====================================
-
-# def extract_category(item_id):
-#     """
-#     Example:
-#     FOODS_1_005 -> FOODS
-#     """
-
-#     if not isinstance(item_id, str):
-#         return ""
-
-#     return item_id.split("_")[0].upper()
-
-
-# def map_risk_level_to_score(value):
-#     """
-#     Convert risk labels
-#     to numeric values
-
-#     LOW -> 1
-#     MEDIUM -> 2
-#     HIGH -> 3
-#     """
-
-#     mapping = {
-#         "LOW": 1,
-#         "MEDIUM": 2,
-#         "HIGH": 3
-#     }
-
-#     if pd.isna(value):
-#         return 0
-
-#     return mapping.get(
-#         str(value).upper(),
-#         0
-#     )
-
-
-# def apply_filters(df, filters):
-#     """
-#     Safe filter application
-#     """
-
-#     filtered_df = df.copy()
-
-#     if not filters:
-#         return filtered_df
-
-#     # -----------------------------------
-#     # category filter
-#     # -----------------------------------
-
-#     if "category" in filters:
-#         category_value = filters[
-#             "category"
-#         ].upper()
-
-#         filtered_df = filtered_df[
-#             filtered_df["item_id"]
-#             .str.upper()
-#             .str.startswith(category_value)
-#         ]
-
-#     # -----------------------------------
-#     # item_id prefix filter
-#     # -----------------------------------
-
-#     if "item_id" in filters:
-#         item_value = filters[
-#             "item_id"
-#         ].upper()
-
-#         filtered_df = filtered_df[
-#             filtered_df["item_id"]
-#             .str.upper()
-#             .str.startswith(item_value)
-#         ]
-
-#     # -----------------------------------
-#     # store_id exact filter
-#     # -----------------------------------
-
-#     if "store_id" in filters:
-#         store_value = filters[
-#             "store_id"
-#         ].upper()
-
-#         filtered_df = filtered_df[
-#             filtered_df["store_id"]
-#             .str.upper()
-#             == store_value
-#         ]
-
-#     return filtered_df
-
-
-# def fallback_response():
-#     return {
-#         "query_type": "fallback",
-#         "message": (
-#             "No matching query execution path found."
-#         )
-#     }
-
-
-# # =====================================
-# # EXECUTION HANDLERS
-# # =====================================
-
-# def execute_category_analysis(
-#     inventory_df,
-#     filters,
-#     metric
-# ):
-#     matched_rows = apply_filters(
-#         inventory_df,
-#         filters
-#     )
-
-#     if matched_rows.empty:
-#         return {}
-
-#     high_risk_rows = matched_rows[
-#         matched_rows["risk_level"] == "HIGH"
-#     ]
-
-#     top_store = (
-#         matched_rows["store_id"]
-#         .mode()[0]
-#     )
-
-#     return {
-#         "query_type": "category_analysis",
-#         "category": filters.get(
-#             "category",
-#             ""
-#         ),
-#         "total_items": len(
-#             matched_rows
-#         ),
-#         "high_risk_count": len(
-#             high_risk_rows
-#         ),
-#         "top_store": top_store
-#     }
-
-
-# def execute_product_analysis(
-#     inventory_df,
-#     filters,
-#     metric
-# ):
-#     matched_rows = apply_filters(
-#         inventory_df,
-#         filters
-#     )
-
-#     if matched_rows.empty:
-#         return {}
-
-#     item_id = (
-#         matched_rows["item_id"]
-#         .iloc[0]
-#     )
-
-#     total_stores = (
-#         matched_rows["store_id"]
-#         .nunique()
-#     )
-
-#     avg_daily_sales = round(
-#         matched_rows[
-#             "avg_daily_sales"
-#         ].mean(),
-#         2
-#     )
-
-#     high_risk_rows = matched_rows[
-#         matched_rows["risk_level"] == "HIGH"
-#     ]
-
-#     high_risk_store_count = (
-#         high_risk_rows["store_id"]
-#         .nunique()
-#     )
-
-#     dominant_risk_level = (
-#         matched_rows["risk_level"]
-#         .mode()[0]
-#     )
-
-#     if not high_risk_rows.empty:
-#         highest_risk_store = (
-#             high_risk_rows["store_id"]
-#             .mode()[0]
-#         )
-#     else:
-#         highest_risk_store = (
-#             matched_rows["store_id"]
-#             .mode()[0]
-#         )
-
-#     return {
-#         "query_type": "product_analysis",
-#         "item_id": item_id,
-#         "total_stores": int(
-#             total_stores
-#         ),
-#         "avg_daily_sales": float(
-#             avg_daily_sales
-#         ),
-#         "high_risk_store_count": int(
-#             high_risk_store_count
-#         ),
-#         "highest_risk_store": highest_risk_store,
-#         "dominant_risk_level": dominant_risk_level
-#     }
-
-
-# def execute_ranking(
-#     inventory_df,
-#     dsl,
-#     metric
-# ):
-#     filters = dsl.get(
-#         "filters",
-#         {}
-#     )
-
-#     matched_rows = apply_filters(
-#         inventory_df,
-#         filters
-#     )
-
-#     if matched_rows.empty:
-#         return {}
-
-#     group_by = dsl.get(
-#         "group_by",
-#         None
-#     )
-
-#     limit = dsl.get(
-#         "limit",
-#         5
-#     )
-
-#     sort_order = dsl.get(
-#         "sort_order",
-#         "desc"
-#     )
-
-#     if not group_by:
-#         return {}
-
-#     # -----------------------------------
-#     # metric mapping
-#     # -----------------------------------
-
-#     if metric in [
-#         "sales",
-#         "avg_daily_sales"
-#     ]:
-#         value_column = (
-#             "avg_daily_sales"
-#         )
-
-#     elif metric in [
-#         "inventory_risk",
-#         "stockout_risk"
-#     ]:
-#         matched_rows[
-#             "risk_score"
-#         ] = matched_rows[
-#             "risk_level"
-#         ].apply(
-#             map_risk_level_to_score
-#         )
-
-#         value_column = (
-#             "risk_score"
-#         )
-
-#     else:
-#         value_column = (
-#             "avg_daily_sales"
-#         )
-
-#     grouped = (
-#         matched_rows
-#         .groupby(group_by)[value_column]
-#         .sum()
-#         .reset_index(name="score")
-#     )
-
-#     ascending = (
-#         False
-#         if sort_order == "desc"
-#         else True
-#     )
-
-#     grouped = grouped.sort_values(
-#         by="score",
-#         ascending=ascending
-#     ).head(limit)
-
-#     return {
-#         "query_type": "ranking",
-#         "metric": metric,
-#         "ranking_results": grouped.to_dict(
-#             orient="records"
-#         )
-#     }
-
-
-# def execute_comparison(
-#     inventory_df,
-#     filters,
-#     metric
-# ):
-#     left_entity = filters.get(
-#         "left_entity",
-#         ""
-#     )
-
-#     right_entity = filters.get(
-#         "right_entity",
-#         ""
-#     )
-
-#     left_rows = inventory_df[
-#         inventory_df["category"]
-#         == left_entity
-#     ]
-
-#     right_rows = inventory_df[
-#         inventory_df["category"]
-#         == right_entity
-#     ]
-
-#     if left_rows.empty or right_rows.empty:
-#         return {}
-
-#     def summarize(df):
-#         high_risk_count = len(
-#             df[
-#                 df["risk_level"] == "HIGH"
-#             ]
-#         )
-
-#         top_store = (
-#             df["store_id"]
-#             .mode()[0]
-#         )
-
-#         return {
-#             "total_items": len(df),
-#             "high_risk_count": high_risk_count,
-#             "top_store": top_store
-#         }
-
-#     return {
-#         "query_type": "comparison",
-#         "metric": metric,
-#         "left_entity": {
-#             "name": left_entity,
-#             **summarize(left_rows)
-#         },
-#         "right_entity": {
-#             "name": right_entity,
-#             **summarize(right_rows)
-#         }
-#     }
-
-
-# def execute_forecast(
-#     demand_df,
-#     filters,
-#     metric
-# ):
-#     matched_rows = apply_filters(
-#         demand_df,
-#         filters
-#     )
-
-#     if matched_rows.empty:
-#         return {}
-
-#     avg_forecast = round(
-#         matched_rows[
-#             "forecast_next_30_days"
-#         ].mean(),
-#         2
-#     )
-
-#     return {
-#         "query_type": "forecast",
-#         "metric": metric,
-#         "forecast_next_30_days": avg_forecast
-#     }
-
-
-# # =====================================
-# # MAIN ORCHESTRATOR
-# # =====================================
-
-# def execute_query_plan(
-#     inventory_df,
-#     dsl
-# ):
-#     """
-#     Safe Query Executor
-
-#     Orchestrator only.
-
-#     No giant if-elif jungle.
-#     """
-
-#     demand_df = load_demand_forecast()
-
-#     inventory_df = inventory_df.copy()
-
-#     inventory_df["category"] = (
-#         inventory_df["item_id"]
-#         .apply(extract_category)
-#     )
-
-#     query_type = dsl.get(
-#         "query_type",
-#         "fallback"
-#     )
-
-#     filters = dsl.get(
-#         "filters",
-#         {}
-#     )
-
-#     metric = dsl.get(
-#         "metric",
-#         ""
-#     )
-
-#     handler_map = {
-#         "category_analysis":
-#             lambda: execute_category_analysis(
-#                 inventory_df,
-#                 filters,
-#                 metric
-#             ),
-
-#         "product_analysis":
-#             lambda: execute_product_analysis(
-#                 inventory_df,
-#                 filters,
-#                 metric
-#             ),
-
-#         "ranking":
-#             lambda: execute_ranking(
-#                 inventory_df,
-#                 dsl,
-#                 metric
-#             ),
-
-#         "comparison":
-#             lambda: execute_comparison(
-#                 inventory_df,
-#                 filters,
-#                 metric
-#             ),
-
-#         "forecast":
-#             lambda: execute_forecast(
-#                 demand_df,
-#                 filters,
-#                 metric
-#             )
-#     }
-
-#     handler = handler_map.get(
-#         query_type
-#     )
-
-#     if not handler:
-#         return fallback_response()
-
-#     return handler()
 
 # query_executor.py
 
@@ -1050,8 +29,50 @@ def load_demand_forecast():
     )
 
 
+def load_stockout_risk():
+    files = glob.glob(
+        "data/gold_stockout_risk/*.csv"
+    )
+
+    if not files:
+        return pd.DataFrame()
+
+    return pd.concat(
+        [pd.read_csv(f) for f in files],
+        ignore_index=True
+    )
+
+
+def load_price_impact():
+    files = glob.glob(
+        "data/gold_price_impact/*.csv"
+    )
+
+    if not files:
+        return pd.DataFrame()
+
+    return pd.concat(
+        [pd.read_csv(f) for f in files],
+        ignore_index=True
+    )
+
+
+def load_demand_anomaly():
+    files = glob.glob(
+        "data/gold_demand_anomaly/*.csv"
+    )
+
+    if not files:
+        return pd.DataFrame()
+
+    return pd.concat(
+        [pd.read_csv(f) for f in files],
+        ignore_index=True
+    )
+
+
 # =====================================
-# SHARED HELPERS
+# HELPERS
 # =====================================
 
 def extract_category(item_id):
@@ -1059,25 +80,6 @@ def extract_category(item_id):
         return ""
 
     return item_id.split("_")[0].upper()
-
-
-def map_metric_column(metric):
-    """
-    Business metric → real dataframe column
-    """
-
-    mapping = {
-        "sales": "avg_daily_sales",
-        "avg_daily_sales": "avg_daily_sales",
-        "inventory_risk": "risk_level",
-        "stockout_risk": "risk_level",
-        "anomaly_score": "sales_volatility"
-    }
-
-    return mapping.get(
-        metric,
-        "avg_daily_sales"
-    )
 
 
 def risk_level_to_score(value):
@@ -1093,32 +95,43 @@ def risk_level_to_score(value):
     )
 
 
-def apply_filters(df, filters):
-    """
-    Generic filter engine
-    """
+def map_metric_column(metric):
+    mapping = {
+        "sales": "avg_daily_sales",
+        "avg_daily_sales": "avg_daily_sales",
+        "inventory_risk": "risk_level",
+        "stockout_risk": "stockout_risk",
+        "anomaly_score": "anomaly_score",
+        "price_sensitivity": "price_sensitivity_flag",
+        "forecast_next_7_days": "forecast_next_7_days",
+        "forecast_next_30_days": "forecast_next_30_days",
+        "zero_sales_days": "zero_sales_days",
+        "sales_volatility": "sales_volatility"
+    }
 
+    return mapping.get(
+        metric,
+        "avg_daily_sales"
+    )
+
+
+def apply_filters(df, filters):
     result = df.copy()
 
     for rule in filters:
-        field = rule.get(
-            "field"
-        )
+        field = rule.get("field")
+        operator = rule.get("operator")
+        value = rule.get("value")
 
-        operator = rule.get(
-            "operator"
-        )
-
-        value = rule.get(
-            "value"
-        )
-
-        if field == "category":
-            if "category" not in result.columns:
-                result["category"] = (
-                    result["item_id"]
-                    .apply(extract_category)
-                )
+        if (
+            field == "category"
+            and "category" not in result.columns
+            and "item_id" in result.columns
+        ):
+            result["category"] = (
+                result["item_id"]
+                .apply(extract_category)
+            )
 
         if field not in result.columns:
             continue
@@ -1127,6 +140,7 @@ def apply_filters(df, filters):
             result = result[
                 result[field]
                 .astype(str)
+                .str.strip()
                 .str.upper()
                 == str(value).upper()
             ]
@@ -1135,6 +149,7 @@ def apply_filters(df, filters):
             result = result[
                 result[field]
                 .astype(str)
+                .str.strip()
                 .str.upper()
                 .str.startswith(
                     str(value).upper()
@@ -1157,40 +172,220 @@ def apply_filters(df, filters):
 def fallback_response():
     return {
         "query_type": "fallback",
-        "message": (
-            "No valid execution path found."
+        "message": "No valid execution path found."
+    }
+
+
+# =====================================
+# DISCOVERY
+# =====================================
+
+def execute_discovery(df, dsl):
+    target_field = dsl.get(
+        "target_field",
+        "category"
+    )
+
+    if target_field == "schema":
+        return {
+            "query_type": "discovery",
+            "available_fields": list(df.columns)
+        }
+
+    if target_field not in df.columns:
+        return {
+            "query_type": "discovery",
+            "target_field": target_field,
+            "values": []
+        }
+
+    values = sorted(
+        df[target_field]
+        .dropna()
+        .astype(str)
+        .str.upper()
+        .unique()
+        .tolist()
+    )
+
+    return {
+        "query_type": "discovery",
+        "target_field": target_field,
+        "values": values
+    }
+
+
+# =====================================
+# PRODUCT ANALYSIS
+# =====================================
+
+def execute_product_analysis(df):
+    if df.empty:
+        return {}
+
+    high_risk_rows = df[
+        df["risk_level"] == "HIGH"
+    ]
+
+    return {
+        "query_type": "product_analysis",
+        "item_id": df["item_id"].iloc[0],
+        "total_stores": int(
+            df["store_id"].nunique()
+        ),
+        "avg_daily_sales": round(
+            df["avg_daily_sales"].mean(),
+            2
+        ),
+        "dominant_risk_level": df[
+            "risk_level"
+        ].mode()[0],
+        "high_risk_store_count": int(
+            high_risk_rows["store_id"].nunique()
         )
     }
 
 
 # =====================================
-# EXECUTION TYPES
+# CATEGORY ANALYSIS
 # =====================================
 
-def execute_ranking(
-    df,
-    dsl
-):
+def execute_category_analysis(df):
+    if df.empty:
+        return {}
+
+    high_risk_rows = df[
+        df["risk_level"] == "HIGH"
+    ]
+
+    return {
+        "query_type": "category_analysis",
+        "category": df["category"].iloc[0],
+        "total_items": int(
+            df["item_id"].nunique()
+        ),
+        "avg_daily_sales": round(
+            df["avg_daily_sales"].mean(),
+            2
+        ),
+        "high_risk_count": int(
+            high_risk_rows["item_id"].nunique()
+        ),
+        "top_store": df[
+            "store_id"
+        ].mode()[0]
+    }
+
+
+# =====================================
+# STORE ANALYSIS
+# =====================================
+
+def execute_store_analysis(df):
+    if df.empty:
+        return {}
+
+    high_risk_rows = df[
+        df["risk_level"] == "HIGH"
+    ]
+
+    return {
+        "query_type": "store_analysis",
+        "store_id": df["store_id"].iloc[0],
+        "total_products": int(
+            df["item_id"].nunique()
+        ),
+        "avg_daily_sales": round(
+            df["avg_daily_sales"].mean(),
+            2
+        ),
+        "high_risk_products": int(
+            high_risk_rows["item_id"].nunique()
+        ),
+        "top_category": df[
+            "category"
+        ].mode()[0]
+    }
+
+
+# =====================================
+# DEPARTMENT ANALYSIS
+# =====================================
+
+def execute_department_analysis(df):
+    if df.empty:
+        return {}
+
+    high_risk_rows = df[
+        df["risk_level"] == "HIGH"
+    ]
+
+    return {
+        "query_type": "department_analysis",
+        "department": df["department"].iloc[0],
+        "total_items": int(
+            df["item_id"].nunique()
+        ),
+        "avg_daily_sales": round(
+            df["avg_daily_sales"].mean(),
+            2
+        ),
+        "high_risk_count": int(
+            high_risk_rows["item_id"].nunique()
+        )
+    }
+
+
+# =====================================
+# STATE ANALYSIS
+# =====================================
+
+def execute_state_analysis(df):
+    if df.empty:
+        return {}
+
+    high_risk_rows = df[
+        df["risk_level"] == "HIGH"
+    ]
+
+    return {
+        "query_type": "state_analysis",
+        "state_id": df["state_id"].iloc[0],
+        "total_items": int(
+            df["item_id"].nunique()
+        ),
+        "avg_daily_sales": round(
+            df["avg_daily_sales"].mean(),
+            2
+        ),
+        "high_risk_count": int(
+            high_risk_rows["item_id"].nunique()
+        ),
+        "top_category": df[
+            "category"
+        ].mode()[0]
+    }
+
+
+# =====================================
+# RANKING
+# =====================================
+
+def execute_ranking(df, dsl):
     metric = dsl.get(
         "metric",
         "sales"
     )
 
-    mapped_column = (
-        map_metric_column(metric)
-    )
+    mapped_column = map_metric_column(metric)
 
     if mapped_column == "risk_level":
         df = df.copy()
         df["risk_score"] = (
             df["risk_level"]
-            .apply(
-                risk_level_to_score
-            )
+            .apply(risk_level_to_score)
         )
-        mapped_column = (
-            "risk_score"
-        )
+        mapped_column = "risk_score"
 
     group_by = dsl.get(
         "group_by",
@@ -1203,9 +398,7 @@ def execute_ranking(
     group_field = group_by[0]
 
     grouped = (
-        df.groupby(group_field)[
-            mapped_column
-        ]
+        df.groupby(group_field)[mapped_column]
         .sum()
         .reset_index(name="score")
     )
@@ -1215,13 +408,11 @@ def execute_ranking(
         {}
     )
 
-    sort_order = sort_config.get(
-        "order",
-        "desc"
-    )
-
     ascending = (
-        sort_order == "asc"
+        sort_config.get(
+            "order",
+            "desc"
+        ) == "asc"
     )
 
     limit = dsl.get(
@@ -1243,42 +434,111 @@ def execute_ranking(
     }
 
 
-def execute_comparison(
-    df,
-    dsl
-):
+# =====================================
+# THRESHOLD
+# =====================================
+
+def execute_threshold(df, dsl):
+    metric = dsl.get(
+        "metric",
+        "zero_sales_days"
+    )
+
+    threshold = dsl.get(
+        "threshold",
+        None
+    )
+
+    if threshold is None:
+        return {}
+
+    mapped_column = map_metric_column(metric)
+
+    if mapped_column not in df.columns:
+        return {}
+
+    if mapped_column == "risk_level":
+        return {}
+
+    filtered = df[
+        df[mapped_column] > threshold
+    ].copy()
+
+    if filtered.empty:
+        return {}
+
+    entity_field = "item_id"
+
+    if dsl.get("entity_type") == "store_id":
+        entity_field = "store_id"
+
+    elif dsl.get("entity_type") == "category":
+        entity_field = "category"
+
+    elif dsl.get("entity_type") == "department":
+        entity_field = "department"
+
+    elif dsl.get("entity_type") == "state_id":
+        entity_field = "state_id"
+
+    grouped = (
+        filtered
+        .groupby(entity_field)[mapped_column]
+        .mean()
+        .reset_index(name="score")
+        .sort_values(
+            by="score",
+            ascending=False
+        )
+        .head(
+            dsl.get("limit", 10)
+        )
+    )
+
+    return {
+        "query_type": "threshold",
+        "metric": metric,
+        "threshold": threshold,
+        "ranking_results": grouped.to_dict(
+            orient="records"
+        )
+    }
+
+
+# =====================================
+# COMPARISON
+# =====================================
+
+def execute_comparison(df, dsl):
     comparison = dsl.get(
         "comparison",
         {}
     )
 
-    left = comparison.get(
-        "left",
-        ""
-    )
-
-    right = comparison.get(
-        "right",
-        ""
-    )
-
+    left = comparison.get("left", "")
+    right = comparison.get("right", "")
     metric = comparison.get(
         "metric",
         "inventory_risk"
     )
 
     if "category" not in df.columns:
-        df["category"] = (
-            df["item_id"]
-            .apply(extract_category)
-        )
+        return {}
 
     left_df = df[
-        df["category"] == left
+        df["category"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        == left.upper()
     ]
 
     right_df = df[
-        df["category"] == right
+        df["category"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        == right.upper()
     ]
 
     if left_df.empty or right_df.empty:
@@ -1286,17 +546,17 @@ def execute_comparison(
 
     def summarize(x):
         return {
-            "total_items": len(x),
-            "avg_sales": round(
-                x["avg_daily_sales"]
-                .mean(),
+            "total_items": int(
+                x["item_id"].nunique()
+            ),
+            "avg_daily_sales": round(
+                x["avg_daily_sales"].mean(),
                 2
             ),
-            "high_risk_count": len(
+            "high_risk_count": int(
                 x[
-                    x["risk_level"]
-                    == "HIGH"
-                ]
+                    x["risk_level"] == "HIGH"
+                ]["item_id"].nunique()
             )
         }
 
@@ -1314,113 +574,33 @@ def execute_comparison(
     }
 
 
-def execute_forecast(
-    df,
-    dsl
-):
+# =====================================
+# FORECAST
+# =====================================
+
+def execute_forecast(df):
     if df.empty:
         return {}
 
-    avg_forecast = round(
-        df[
-            "forecast_next_30_days"
-        ].mean(),
-        2
-    )
-
     return {
         "query_type": "forecast",
-        "forecast_next_30_days": avg_forecast
-    }
-
-
-def execute_diagnostic_analysis(
-    df,
-    dsl
-):
-    filters = dsl.get(
-        "filters",
-        []
-    )
-
-    item_filter = None
-
-    for f in filters:
-        if f.get("field") == "item_id":
-            item_filter = f.get(
-                "value"
-            )
-
-    if item_filter:
-        matched = df[
-            df["item_id"]
-            .str.upper()
-            .str.startswith(
-                item_filter.upper()
-            )
-        ]
-    else:
-        matched = df
-
-    if matched.empty:
-        return {}
-
-    high_risk_rows = matched[
-        matched["risk_level"]
-        == "HIGH"
-    ]
-
-    return {
-        "query_type": "product_analysis",
-        "item_id": matched[
-            "item_id"
-        ].iloc[0],
-        "total_stores": int(
-            matched[
-                "store_id"
-            ].nunique()
-        ),
-        "avg_daily_sales": round(
-            matched[
-                "avg_daily_sales"
+        "forecast_next_30_days": round(
+            df[
+                "forecast_next_30_days"
             ].mean(),
             2
-        ),
-        "high_risk_store_count": int(
-            high_risk_rows[
-                "store_id"
-            ].nunique()
-        ),
-        "highest_risk_store": (
-            "No high-risk store identified"
-            if high_risk_rows.empty
-            else high_risk_rows[
-                "store_id"
-            ].mode()[0]
-        ),
-        "dominant_risk_level": matched[
-            "risk_level"
-        ].mode()[0]
+        )
     }
 
 
 # =====================================
-# MAIN ORCHESTRATOR
+# MAIN EXECUTOR
 # =====================================
 
 def execute_query_plan(
     inventory_df,
     dsl
 ):
-    """
-    Safe analytical engine
-
-    LLM produces DSL only
-
-    Python executes only
-    approved operations
-    """
-
     source = dsl.get(
         "source",
         "gold_inventory_risk"
@@ -1428,17 +608,32 @@ def execute_query_plan(
 
     if source == "gold_demand_forecast":
         df = load_demand_forecast()
+
+    elif source == "gold_stockout_risk":
+        df = load_stockout_risk()
+
+    elif source == "gold_price_impact":
+        df = load_price_impact()
+
+    elif source == "gold_demand_anomaly":
+        df = load_demand_anomaly()
+
     else:
         df = inventory_df.copy()
 
-    if "category" not in df.columns:
-        if "item_id" in df.columns:
-            df["category"] = (
-                df["item_id"]
-                .apply(
-                    extract_category
-                )
-            )
+    if df.empty:
+        return {}
+
+    query_type = dsl.get(
+        "query_type",
+        "fallback"
+    )
+
+    if query_type == "comparison":
+        return execute_comparison(
+            df,
+            dsl
+        )
 
     filters = dsl.get(
         "filters",
@@ -1453,23 +648,46 @@ def execute_query_plan(
     if df.empty:
         return {}
 
-    query_type = dsl.get(
-        "query_type",
-        "fallback"
-    )
+    if query_type == "diagnostic_analysis":
+
+        if any(
+            f.get("field") == "item_id"
+            for f in filters
+        ):
+            return execute_product_analysis(df)
+
+        elif any(
+            f.get("field") == "category"
+            for f in filters
+        ):
+            return execute_category_analysis(df)
+
+        elif any(
+            f.get("field") == "department"
+            for f in filters
+        ):
+            return execute_department_analysis(df)
+
+        elif any(
+            f.get("field") == "store_id"
+            for f in filters
+        ):
+            return execute_store_analysis(df)
+
+        elif any(
+            f.get("field") == "state_id"
+            for f in filters
+        ):
+            return execute_state_analysis(df)
+
+        else:
+            return fallback_response()
 
     handler_map = {
-        "ranking":
-            execute_ranking,
-
-        "comparison":
-            execute_comparison,
-
-        "forecast":
-            execute_forecast,
-
-        "diagnostic_analysis":
-            execute_diagnostic_analysis
+        "discovery": execute_discovery,
+        "ranking": execute_ranking,
+        "forecast": execute_forecast,
+        "threshold": execute_threshold
     }
 
     handler = handler_map.get(
@@ -1478,6 +696,9 @@ def execute_query_plan(
 
     if not handler:
         return fallback_response()
+
+    if query_type == "forecast":
+        return handler(df)
 
     return handler(
         df,

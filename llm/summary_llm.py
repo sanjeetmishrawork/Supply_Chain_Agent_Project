@@ -1,3 +1,4 @@
+
 # llm/summary_llm.py
 
 from llm.llm_client import call_llm
@@ -28,9 +29,8 @@ def get_summary_from_llm(
     - comparison queries
     - forecast queries
     - category/store/product analysis
-
-    Different query types require
-    different executive outputs.
+    - root cause queries
+    - state analysis
 
     Generic answers are failure.
     """
@@ -56,8 +56,44 @@ Do NOT introduce unsupported claims.
 
 Do NOT produce generic consulting language.
 
-You must adapt your response
-based on Query Type.
+-----------------------------------
+ENTITY DISCIPLINE RULE
+-----------------------------------
+
+Preserve exact entity granularity.
+
+If reasoning context provides:
+
+- item_id
+
+you must discuss item_id.
+
+Do NOT convert it to:
+
+- category
+- department
+- store
+- state
+
+unless explicitly provided.
+
+Examples:
+
+If reasoning context contains:
+
+FOODS_3_350
+
+you must discuss:
+
+FOODS_3_350
+
+NOT:
+
+FOODS
+
+Exact facts > elegant summaries.
+
+Never rewrite entity granularity.
 
 -----------------------------------
 Behavior Rules by Query Type
@@ -71,12 +107,28 @@ Your job is to explain:
 - what the ranking means
 - where management attention is needed
 
-Example:
+CRITICAL:
 
-Top categories by sales are FOODS,
-HOBBIES, and HOUSEHOLD.
+Use the exact ranked entities provided.
 
-Explain operational significance.
+If ranking results contain:
+
+- item_id → discuss products only
+- category → discuss categories only
+- store_id → discuss stores only
+- state_id → discuss states only
+
+Do NOT convert:
+
+item_id → category
+
+Do NOT generalize:
+
+FOODS_3_350 → FOODS
+
+unless explicitly present.
+
+Use exact ranked entities only.
 
 Do NOT give generic inventory advice.
 
@@ -89,11 +141,6 @@ Your job is to explain:
 - which side is stronger/weaker
 - what the key operational difference is
 - where intervention is needed
-
-Example:
-
-FOODS carries higher inventory risk
-than HOBBIES because...
 
 Make the comparison explicit.
 
@@ -108,15 +155,31 @@ Your job is to explain:
 - future demand risk
 - stockout planning
 - inventory readiness
-- forward-looking operational decisions
+- forward-looking decisions
 
 Focus on future risk,
 not current diagnosis.
 
 -----------------------------------
 
-4. If Query Type = category_analysis /
-product_analysis / store_analysis
+4. If Query Type = root_cause_query
+
+Your job is to explain:
+
+- why the risk exists
+- what is driving the issue
+- what operational behavior is causing it
+
+Focus on cause,
+not just symptoms.
+
+-----------------------------------
+
+5. If Query Type =
+category_analysis /
+product_analysis /
+store_analysis /
+state_analysis
 
 Your job is to explain:
 
@@ -142,11 +205,14 @@ Do NOT repeat raw context mechanically.
 
 Do NOT write vague generic advice.
 
-Do NOT answer a ranking query
-like a diagnosis query.
+Do NOT answer ranking like diagnosis.
 
-Do NOT answer a comparison query
-like a single-category summary.
+Do NOT answer comparison like single analysis.
+
+Do NOT answer root cause like ranking.
+
+Facts first.
+Interpretation second.
 
 -----------------------------------
 Reasoning Context
@@ -186,4 +252,4 @@ Return only the final answer.
         "\n-----------------------------------\n"
     )
 
-    return response 
+    return response

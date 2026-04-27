@@ -1,3 +1,4 @@
+
 # agents/validation_agent.py
 
 import json
@@ -13,7 +14,9 @@ from llm.validator_llm import run_validator_llm
 ALLOWED_INTENTS = [
     "product_diagnosis",
     "category_analysis",
+    "department_analysis",
     "store_analysis",
+    "state_analysis",
     "recommendation_request",
     "business_impact",
     "forecasting_query",
@@ -21,13 +24,21 @@ ALLOWED_INTENTS = [
     "comparison_query",
     "trend_query",
     "executive_summary",
-    "discovery_query"
+    "discovery_query",
+    "root_cause_query",
+    "exception_query",
+    "threshold_query",
+    "portfolio_summary",
+    "intervention_priority",
+    "price_sensitivity_query"
 ]
 
 ALLOWED_ENTITY_TYPES = [
     "item_id",
     "category",
+    "department",
     "store_id",
+    "state_id",
     "field",
     "none"
 ]
@@ -40,7 +51,9 @@ ALLOWED_METRICS = [
     "price_sensitivity",
     "forecast_next_7_days",
     "forecast_next_30_days",
-    "avg_daily_sales"
+    "avg_daily_sales",
+    "zero_sales_days",
+    "sales_volatility"
 ]
 
 
@@ -130,6 +143,11 @@ def deterministic_validate(query_plan):
         ""
     )
 
+    threshold = query_plan.get(
+        "threshold",
+        None
+    )
+
     # =====================================
     # ALLOWED VALUES
     # =====================================
@@ -150,11 +168,34 @@ def deterministic_validate(query_plan):
         )
 
     # =====================================
+    # REQUIRED ENTITY VALIDATION
+    # =====================================
+
+    if intent in [
+        "product_diagnosis",
+        "category_analysis",
+        "department_analysis",
+        "store_analysis",
+        "state_analysis",
+        "comparison_query",
+        "root_cause_query"
+    ]:
+        if (
+            entity_type != "none"
+            and not entity_value
+        ):
+            issues.append(
+                "Missing required entity_value"
+            )
+
+    # =====================================
     # ITEM_ID FORMAT VALIDATION
     # =====================================
 
-    if entity_type == "item_id":
-
+    if (
+        entity_type == "item_id"
+        and entity_value
+    ):
         item_pattern = (
             r"^[A-Z]+_[0-9]+_[0-9]+$"
         )
@@ -221,28 +262,72 @@ def deterministic_validate(query_plan):
             )
 
     # =====================================
+    # ROOT CAUSE QUERY RULES
+    # =====================================
+
+    if intent == "root_cause_query":
+
+        if not metric:
+            issues.append(
+                "Root cause query requires metric"
+            )
+
+        if (
+            entity_type != "none"
+            and not entity_value
+        ):
+            issues.append(
+                "Root cause query requires entity_value"
+            )
+
+    # =====================================
+    # STATE ANALYSIS RULES
+    # =====================================
+
+    if intent == "state_analysis":
+
+        if entity_type != "state_id":
+            issues.append(
+                "State analysis requires entity_type = state_id"
+            )
+
+        if not entity_value:
+            issues.append(
+                "State analysis requires entity_value"
+            )
+
+    # =====================================
+    # THRESHOLD QUERY RULES
+    # =====================================
+
+    if intent == "threshold_query":
+
+        if not metric:
+            issues.append(
+                "Threshold query requires metric"
+            )
+
+        if threshold is None:
+            issues.append(
+                "Threshold query requires threshold"
+            )
+
+    # =====================================
+    # PRICE SENSITIVITY RULES
+    # =====================================
+
+    if intent == "price_sensitivity_query":
+
+        if not metric:
+            issues.append(
+                "Price sensitivity query requires metric"
+            )
+
+    # =====================================
     # DISCOVERY QUERY RULES
     # =====================================
 
     if intent == "discovery_query":
-
-        """
-        discovery_query examples:
-
-        what categories exist
-        what stores do we have
-        what columns are available
-
-        These do NOT require:
-        - metric
-        - aggregation
-        - limit
-        - entity_value
-
-        They DO require:
-        - operation
-        - target_field
-        """
 
         if not operation:
             issues.append(
@@ -261,8 +346,7 @@ def deterministic_validate(query_plan):
 
         if (
             operation
-            and operation
-            not in allowed_operations
+            and operation not in allowed_operations
         ):
             issues.append(
                 "Invalid discovery operation"
