@@ -1,25 +1,9 @@
-
 # main.py
 
-from graph import build_graph
+from run_pipeline import execute_query
 
 
 def main():
-    """
-    Clean runtime entry point
-
-    Runs the full production pipeline:
-
-    planner
-    → validator
-    → repair (if needed)
-    → DSL
-    → execution
-    → reasoning
-    → summary
-    → reflection (on failure)
-    """
-
     print("\n====================================")
     print("AI Supply Chain Strategic Copilot")
     print("====================================\n")
@@ -45,40 +29,8 @@ def main():
                 )
                 break
 
-            # -----------------------------------
-            # Initial LangGraph State
-            # -----------------------------------
-
-            initial_state = {
-                "user_input": user_input,
-
-                "query_plan": {},
-                "planner_reasoning": "",
-
-                "validation_result": {},
-                "repaired_query_plan": {},
-
-                "dsl": {},
-                "execution_result": {},
-
-                "reasoning_context": "",
-                "final_response": "",
-
-                "failure_stage": "",
-                "actual_failure_reason": "",
-                "reflection_output": "",
-
-                "confidence_score": 0.0
-            }
-
-            # -----------------------------------
-            # Build + Run Graph
-            # -----------------------------------
-
-            app = build_graph()
-
-            final_state = app.invoke(
-                initial_state
+            final_state = execute_query(
+                user_input
             )
 
             print(
@@ -91,28 +43,16 @@ def main():
                 "====================================\n"
             )
 
-            # -----------------------------------
-            # Failure Path
-            # -----------------------------------
-
             if final_state.get(
                 "failure_stage"
             ):
-                print(
-                    "System Reflection:\n"
-                )
-
+                print("System Reflection:\n")
                 print(
                     final_state.get(
                         "reflection_output",
                         "No reflection available."
                     )
                 )
-
-            # -----------------------------------
-            # Success Path
-            # -----------------------------------
-
             else:
                 print(
                     final_state.get(
